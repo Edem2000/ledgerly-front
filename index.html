@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PFA — One‑Page Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="brand">
+            <div class="logo">UZS</div>
+            <div>
+                <h1>Personal Finance Assistant — Prototype (UZS, in thousands)</h1>
+                <div class="muted" style="font-size:12px">One‑page demo • Author - Edem Veliev</div>
+            </div>
+        </div>
+        <div class="controls">
+            <select id="monthSelect" title="Month filter"></select>
+            <select id="unitSelect" title="Units">
+                <option value="k">k UZS</option>
+                <option value="full">UZS</option>
+            </select>
+            <button id="resetBtn">Reset</button>
+        </div>
+        <button id="addBtn">+ Add</button>
+    </header>
+
+    <!-- Add Transaction Form (toggle) -->
+    <section class="card" id="addFormCard" style="display:none; margin-bottom:12px">
+        <form id="addForm" class="add-form" autocomplete="off">
+            <div class="form-row">
+                <label>Date<br><input type="date" id="fDate" required></label>
+            </div>
+            <div class="form-row">
+                <label>Type<br>
+                    <select id="fType">
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                    </select>
+                </label>
+            </div>
+            <div class="form-row">
+                <label>Amount<br><input type="number" id="fAmount" step="0.01" min="0.01" required placeholder="0.00"></label>
+            </div>
+            <div class="form-row">
+                <label>Category<br>
+                    <input list="catList" id="fCategory" required placeholder="e.g. Groceries">
+                    <datalist id="catList"></datalist>
+                </label>
+            </div>
+            <div class="form-row" style="flex:2">
+                <label>Merchant / Note<br><input type="text" id="fMerchant" placeholder="optional"></label>
+            </div>
+            <div class="form-actions">
+                <button type="submit">Add</button>
+                <button type="button" id="cancelAdd">Cancel</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="kpis">
+        <div class="card kpi" id="kpiIncome">
+            <h3>Income</h3>
+            <div class="value good" data-testid="income"></div>
+            <div class="muted" style="font-size:12px" data-testid="income-count"></div>
+        </div>
+        <div class="card kpi" id="kpiExpense">
+            <h3>Expenses</h3>
+            <div class="value bad" data-testid="expense"></div>
+            <div class="muted" style="font-size:12px" data-testid="expense-count"></div>
+        </div>
+        <div class="card kpi" id="kpiNet">
+            <h3>Net</h3>
+            <div class="value" data-testid="net"></div>
+            <div class="muted" style="font-size:12px" data-testid="net-note"></div>
+        </div>
+        <div class="card kpi" id="kpiBudgets">
+            <h3>Budgets (month)</h3>
+            <div class="budget-toolbar">
+                <select id="budgetSort" title="Sort budgets">
+                    <option value="name">Name (A–Z)</option>
+                    <option value="spent">Spent (desc)</option>
+                    <option value="over">Over first</option>
+                </select>
+                <button id="addBudgetBtn" class="mini">Add Limit</button>
+            </div>
+            <div class="budgets" id="budgetsBox"></div>
+        </div>
+    </section>
+
+    <section class="row" style="margin-top:8px">
+        <div class="card chart-card">
+            <h3 style="margin:0 0 8px 0; font-size:13px; color:var(--muted)">By Category</h3>
+            <canvas id="pie"></canvas>
+        </div>
+        <div class="card table-card">
+            <h3 style="margin:0 0 8px 0; font-size:13px; color:var(--muted)">Recent Transactions</h3>
+            <table id="txTable">
+                <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Merchant / Note</th>
+                    <th>Category</th>
+                    <th class="t-amount">Amount</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <span>Local changes are stored in your browser.</span>
+        <button id="clearAddedBtn">Clear Added</button>
+    </footer>
+</div>
+<div id="toast" class="toast" aria-live="polite"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
