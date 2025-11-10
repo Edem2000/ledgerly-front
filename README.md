@@ -11,17 +11,17 @@ The primary goal of the midterm stage is to demonstrate UX, core mechanics, and 
 - Currency: **UZS** (all numbers in this prototype are represented in **thousands UZS** for readability)
 
 ### Features Implemented
-| Scope | Status |
-|--------|--------|
-| Monthly KPI summary (Income / Expense / Net) | ✅ |
-| Add transactions manually | ✅ |
-| Category auto-detection | ✅ |
-| Dynamic budgets per category | ✅ |
-| Ability to add / edit / delete category limits | ✅ |
+| Scope                                                                     | Status |
+|---------------------------------------------------------------------------|--------|
+| Monthly KPI summary (Income / Expense / Net)                              | ✅ |
+| Add transactions manually                                                 | ✅ |
+| Category auto-creation                                                    | ✅ |
+| Dynamic budgets per category                                              | ✅ |
+| Ability to add / edit / delete category limits                            | ✅ |
 | Categories without limit are supported and visually indicated (`No limit`) | ✅ |
-| Sorting budgets (Name / Spent desc / Over-first) | ✅ |
-| Pie chart view by categories | ✅ |
-| Data persistence via localStorage | ✅ |
+| Sorting budgets (Name / Spent desc / Over-first)                          | ✅ |
+| Pie chart view by categories                                              | ✅ |
+| Data persistence via localStorage                                         | ✅ |
 
 ### Data Model
 - Transactions stored locally as `[{ date, type, amount(kUZS), category, merchant }]`
