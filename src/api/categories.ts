@@ -1,4 +1,10 @@
-import type { CategoryBudgetDto, CategoryDto } from './types';
+import type {
+  CategoryBudgetDto,
+  CategoryResponse,
+  CreateCategoryRequest,
+  CreateCategoryResponse,
+  GetCategoriesResponse,
+} from './types';
 import { apiRequest } from './client';
 
 const authHeaders = (token: string) => ({
@@ -6,7 +12,7 @@ const authHeaders = (token: string) => ({
 });
 
 export const getCategories = (token: string) => {
-  return apiRequest<CategoryDto[]>('/categories', {
+  return apiRequest<GetCategoriesResponse>('/categories', {
     headers: authHeaders(token),
   });
 };
@@ -17,12 +23,26 @@ export const getCategoryBudgets = (token: string) => {
   });
 };
 
-export const createCategory = (token: string, name: string) => {
-  return apiRequest<CategoryDto>('/categories', {
+export const createCategory = (token: string, payload: CreateCategoryRequest) => {
+  return apiRequest<CreateCategoryResponse>('/categories', {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(payload),
   });
+};
+
+export const extractCategoryList = (response: GetCategoriesResponse): CategoryResponse[] => {
+  if ('data' in response) {
+    return response.data;
+  }
+  return [];
+};
+
+export const extractCreatedCategory = (response: CreateCategoryResponse): CategoryResponse | null => {
+  if ('category' in response) {
+    return response.category;
+  }
+  return null;
 };
 
 export const createCategoryBudget = (token: string, categoryId: string, limitAmount: number) => {

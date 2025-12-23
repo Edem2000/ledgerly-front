@@ -3,16 +3,38 @@ export type UserStatus = 'active' | 'inactive' | 'deleted';
 export type TransactionType = 'income' | 'expense';
 export type Currency = 'UZS';
 
-export type CategoryDto = {
-  id: string;
-  name: string;
-};
-
 export type CategoryBudgetDto = {
   id: string;
   categoryId: string;
   limitAmount: number;
 };
+
+export type CategoryResponse = {
+  id: string;
+  title: string;
+  multilanguageTitle: {
+    ru: string;
+    uz: string;
+    en: string;
+  };
+  alias: string;
+  color: string;
+  icon: string | null;
+};
+
+export type CreateCategoryRequest = {
+  title: string;
+  color: string;
+  icon?: string;
+};
+
+export type CreateCategoryResponse =
+  | { success: true; category: CategoryResponse }
+  | ErrorDto;
+
+export type GetCategoriesResponse =
+  | { success: true; data: CategoryResponse[] }
+  | ErrorDto;
 
 export type MultiLanguage = {
   ru: string;

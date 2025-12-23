@@ -5,6 +5,8 @@ import {
   createCategory,
   createCategoryBudget,
   deleteCategoryBudget,
+  extractCategoryList,
+  extractCreatedCategory,
   getCategories,
   getCategoryBudgets,
   updateCategoryBudget,
@@ -26,7 +28,9 @@ type Transaction = {
 type Budgets = Record<string, number>;
 type CategoryMeta = {
   id: string;
-  name: string;
+  title: string;
+  color: string;
+  icon: string | null;
 };
 
 type FormState = {
@@ -49,6 +53,8 @@ const fmtFull = (k: number) => (k < 0 ? '-' : '') + nfFull.format(Math.abs(k) * 
 
 const fmtDate = (s: string) => new Date(`${s}T00:00:00`);
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+const DEFAULT_CATEGORY_COLOR = '#6d6ef9';
+const DEFAULT_CATEGORY_ICON = null;
 
 const baseTransactions: Transaction[] = [
   { date: '2025-10-02', amount: 1500.0, type: 'income', category: 'Salary', merchant: 'Employer Inc.' },
@@ -168,11 +174,16 @@ export const Dashboard = () => {
           getCategoryBudgets(tokens.accessToken),
         ]);
         if (!isMounted) return;
-        const categoryList = categoriesResponse.map((item) => ({ id: item.id, name: item.name }));
+        const categoryList = extractCategoryList(categoriesResponse).map((item) => ({
+          id: item.id,
+          title: item.title,
+          color: item.color,
+          icon: item.icon,
+        }));
         const budgetMap = budgetsResponse.reduce<Record<string, number>>((acc, item) => {
-          const category = categoriesResponse.find((cat) => cat.id === item.categoryId);
+          const category = categoryList.find((cat) => cat.id === item.categoryId);
           if (category) {
-            acc[category.name] = item.limitAmount;
+            acc[category.title] = item.limitAmount;
           }
           return acc;
         }, {});
@@ -254,7 +265,7 @@ export const Dashboard = () => {
 
   const categories = useMemo(() => {
     const categorySet = new Set([
-      ...categoriesMeta.map((item) => item.name),
+      ...categoriesMeta.map((item) => item.title),
       ...Object.keys(budgets),
       ...Object.keys(spentByCat),
     ]);
@@ -273,7 +284,7 @@ export const Dashboard = () => {
   }, [budgets, spentByCat, budgetSortMode, categoriesMeta]);
 
   const categoryOptions = useMemo(() => {
-    const set = new Set([...categoriesMeta.map((item) => item.name), ...allTx.map((t) => t.category)].filter(Boolean));
+    const set = new Set([...categoriesMeta.map((item) => item.title), ...allTx.map((t) => t.category)].filter(Boolean));
     return Array.from(set).sort();
   }, [allTx, categoriesMeta]);
 
@@ -340,7 +351,7 @@ export const Dashboard = () => {
   };
 
   const categoriesByName = useMemo(() => {
-    return new Map(categoriesMeta.map((item) => [item.name, item]));
+    return new Map(categoriesMeta.map((item) => [item.title, item]));
   }, [categoriesMeta]);
 
   const handleAddBudget = async () => {
@@ -367,8 +378,17 @@ export const Dashboard = () => {
     try {
       let meta = categoriesByName.get(name);
       if (!meta) {
-        const created = await createCategory(tokens.accessToken, name);
-        meta = { id: created.id, name: created.name };
+        const createdResponse = await createCategory(tokens.accessToken, {
+          title: name,
+          color: DEFAULT_CATEGORY_COLOR,
+          icon: DEFAULT_CATEGORY_ICON ?? undefined,
+        });
+        const created = extractCreatedCategory(createdResponse);
+        if (!created) {
+          showToast('Unable to create category');
+          return;
+        }
+        meta = { id: created.id, title: created.title, color: created.color, icon: created.icon };
         setCategoriesMeta((prev) => [...prev, meta]);
       }
       if (existing != null) {
@@ -396,8 +416,17 @@ export const Dashboard = () => {
     let meta = categoriesByName.get(cat);
     try {
       if (!meta) {
-        const created = await createCategory(tokens.accessToken, cat);
-        meta = { id: created.id, name: created.name };
+        const createdResponse = await createCategory(tokens.accessToken, {
+          title: cat,
+          color: DEFAULT_CATEGORY_COLOR,
+          icon: DEFAULT_CATEGORY_ICON ?? undefined,
+        });
+        const created = extractCreatedCategory(createdResponse);
+        if (!created) {
+          showToast('Unable to create category');
+          return;
+        }
+        meta = { id: created.id, title: created.title, color: created.color, icon: created.icon };
         setCategoriesMeta((prev) => [...prev, meta]);
       }
     } catch (err) {
