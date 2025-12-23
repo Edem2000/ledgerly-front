@@ -39,15 +39,6 @@ type CategoryMeta = {
   icon: string | null;
 };
 
-type FormState = {
-  date: string;
-  type: TransactionType;
-  amount: string;
-  category: string;
-  title: string;
-  categoryId?: string;
-};
-
 type ToastState = {
   message: string;
   visible: boolean;
@@ -139,22 +130,19 @@ export const Dashboard = () => {
   const chartRef = useRef<Chart | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [formState, setFormState] = useState<FormState>({
-    date: '',
-    type: 'expense',
-    amount: '',
-    category: '',
-    title: '',
-    categoryId: undefined,
-  });
+  const [transactionDate, setTransactionDate] = useState('');
+  const [transactionType, setTransactionType] = useState<TransactionType>('expense');
+  const [transactionAmount, setTransactionAmount] = useState('');
+  const [transactionCategory, setTransactionCategory] = useState('');
+  const [transactionTitle, setTransactionTitle] = useState('');
+  const [transactionCategoryId, setTransactionCategoryId] = useState<string | undefined>(undefined);
   const [suggestedCategories, setSuggestedCategories] = useState<SuggestedCategory[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const suggestRequestRef = useRef(0);
-  const [titleValue, setTitleValue] = useState('');
 
   useEffect(() => {
     if (!isAddOpen) return;
-    const trimmedTitle = titleValue.trim();
+    const trimmedTitle = transactionTitle.trim();
     if (!trimmedTitle) {
       setSuggestedCategories([]);
       setIsSuggesting(false);
@@ -183,7 +171,7 @@ export const Dashboard = () => {
       }
     };
     loadSuggestions();
-  }, [titleValue, isAddOpen, tokens?.accessToken]);
+  }, [transactionTitle, isAddOpen, tokens?.accessToken]);
 
   const fmtAmount = (k: number) => (unitMode === 'full' ? fmtFull(k) : fmtK(k));
 
@@ -284,16 +272,12 @@ export const Dashboard = () => {
       const lastDay = new Date(parsed.year, parsed.month, 0).getDate();
       dateValue = toPaddedDate(parsed.year, parsed.month, Math.min(day, lastDay));
     }
-    setFormState((prev) => ({
-      ...prev,
-      date: dateValue,
-      type: 'expense',
-      amount: '',
-      category: '',
-      title: '',
-      categoryId: undefined,
-    }));
-    setTitleValue('');
+    setTransactionDate(dateValue);
+    setTransactionType('expense');
+    setTransactionAmount('');
+    setTransactionCategory('');
+    setTransactionTitle('');
+    setTransactionCategoryId(undefined);
     setSuggestedCategories([]);
   }, [isAddOpen, selectedMonth]);
 
@@ -387,22 +371,25 @@ export const Dashboard = () => {
     });
   }, [spentByCat]);
 
-  const handleFormChange =
-    (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      const value = event.target.value;
-      if (field === 'title') {
-        setTitleValue(value);
-      }
-      setFormState((prev) => ({
-        ...prev,
-        [field]: value,
-        ...(field === 'category' ? { categoryId: undefined } : {}),
-      }));
-    };
+  const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTransactionDate(event.target.value);
+  };
 
-  const handleCategoryInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setFormState((prev) => ({ ...prev, category: value, categoryId: undefined }));
+  const handleTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setTransactionType(event.target.value as TransactionType);
+  };
+
+  const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTransactionAmount(event.target.value);
+  };
+
+  const handleCategoryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTransactionCategory(event.target.value);
+    setTransactionCategoryId(undefined);
+  };
+
+  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTransactionTitle(event.target.value);
   };
 
   const handleSuggestedCategorySelect = async (suggestion: SuggestedCategory) => {
@@ -423,11 +410,8 @@ export const Dashboard = () => {
           return;
         }
         setCategoriesMeta((prev) => [...prev, created]);
-        setFormState((prev) => ({
-          ...prev,
-          category: created.title,
-          categoryId: created.id,
-        }));
+        setTransactionCategory(created.title);
+        setTransactionCategoryId(created.id);
         setSuggestedCategories([]);
         return;
       } catch (err) {
@@ -446,38 +430,34 @@ export const Dashboard = () => {
         },
       ]);
     }
-    setFormState((prev) => ({
-      ...prev,
-      category: suggestion.title,
-      categoryId: suggestion.id,
-    }));
+    setTransactionCategory(suggestion.title);
+    setTransactionCategoryId(suggestion.id);
     setSuggestedCategories([]);
   };
 
   const handleAddSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const { date, type, amount, category, title, categoryId } = formState;
-    const amountRaw = parseFloat(amount);
-    if (!date || !Number.isFinite(amountRaw) || amountRaw <= 0) return;
+    const amountRaw = parseFloat(transactionAmount);
+    if (!transactionDate || !Number.isFinite(amountRaw) || amountRaw <= 0) return;
     if (!tokens?.accessToken) {
       showToast('Please sign in to add transactions');
       return;
     }
-    const trimmedCategory = (category || 'Other').trim();
-    const meta = categoryId
-      ? categoriesMeta.find((item) => item.id === categoryId) ||
+    const trimmedCategory = (transactionCategory || 'Other').trim();
+    const meta = transactionCategoryId
+      ? categoriesMeta.find((item) => item.id === transactionCategoryId) ||
         categoriesMeta.find((item) => item.title === trimmedCategory)
       : categoriesMeta.find((item) => item.title === trimmedCategory);
     if (!meta) {
       showToast('Select a valid category');
       return;
     }
-    const transactionTitle = title.trim() || trimmedCategory;
+    const transactionTitleValue = transactionTitle.trim() || trimmedCategory;
     try {
       const response = await createTransaction(tokens.accessToken, {
         categoryId: meta.id,
-        title: transactionTitle,
-        type,
+        title: transactionTitleValue,
+        type: transactionType,
         amount: amountRaw,
       });
       const created = extractCreatedTransaction(response);
@@ -485,7 +465,7 @@ export const Dashboard = () => {
         showToast('Unable to add transaction');
         return;
       }
-      const createdDate = created.occurredAt ? created.occurredAt.slice(0, 10) : date;
+      const createdDate = created.occurredAt ? created.occurredAt.slice(0, 10) : transactionDate;
       const normalizedAmount =
         created.type === 'expense' ? -Math.abs(created.amount) : Math.abs(created.amount);
       const entry: Transaction = {
@@ -493,7 +473,7 @@ export const Dashboard = () => {
         amount: normalizedAmount,
         type: created.type,
         category: trimmedCategory,
-        title: created.title || transactionTitle,
+        title: created.title || transactionTitleValue,
       };
       setExtraTransactions((prev) => [...prev, entry]);
       setSelectedMonth(monthKey(fmtDate(createdDate)));
@@ -708,13 +688,13 @@ export const Dashboard = () => {
               <div className="form-row">
                 <label>
                   Date<br />
-                  <input type="date" id="fDate" required value={formState.date} onChange={handleFormChange('date')} />
+                  <input type="date" id="fDate" required value={transactionDate} onChange={handleDateChange} />
                 </label>
               </div>
               <div className="form-row">
                 <label>
                   Type<br />
-                  <select id="fType" value={formState.type} onChange={handleFormChange('type')}>
+                  <select id="fType" value={transactionType} onChange={handleTypeChange}>
                     <option value="expense">Expense</option>
                     <option value="income">Income</option>
                   </select>
@@ -730,8 +710,8 @@ export const Dashboard = () => {
                     min="0.01"
                     required
                     placeholder="0.00"
-                    value={formState.amount}
-                    onChange={handleFormChange('amount')}
+                    value={transactionAmount}
+                    onChange={handleAmountChange}
                   />
                 </label>
               </div>
@@ -743,8 +723,8 @@ export const Dashboard = () => {
                     id="fCategory"
                     required
                     placeholder="e.g. Groceries"
-                    value={formState.category}
-                    onChange={handleCategoryInputChange}
+                    value={transactionCategory}
+                    onChange={handleCategoryChange}
                   />
                   <datalist id="catList">
                     {categoryOptions.map((cat) => (
@@ -783,8 +763,8 @@ export const Dashboard = () => {
                     type="text"
                     id="fTitle"
                     placeholder="optional"
-                    value={formState.title}
-                    onChange={handleFormChange('title')}
+                    value={transactionTitle}
+                    onChange={handleTitleChange}
                   />
                 </label>
               </div>
