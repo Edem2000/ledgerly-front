@@ -5,6 +5,7 @@ import {
   createCategory,
   createCategoryBudget,
   deleteCategoryBudget,
+  extractCategoryBudgets,
   extractCategoryList,
   extractCreatedCategory,
   getCategories,
@@ -197,7 +198,7 @@ export const Dashboard = () => {
           color: item.color,
           icon: item.icon,
         }));
-        const budgetMap = budgetsResponse.reduce<Record<string, number>>((acc, item) => {
+        const budgetMap = extractCategoryBudgets(budgetsResponse).reduce<Record<string, number>>((acc, item) => {
           const category = categoryList.find((cat) => cat.id === item.categoryId);
           if (category) {
             acc[category.title] = item.limitAmount;

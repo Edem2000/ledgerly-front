@@ -3,6 +3,7 @@ import type {
   CategoryResponse,
   CreateCategoryRequest,
   CreateCategoryResponse,
+  GetCategoryBudgetsResponse,
   GetCategoriesResponse,
 } from './types';
 import { apiRequest } from './client';
@@ -18,7 +19,7 @@ export const getCategories = (token: string) => {
 };
 
 export const getCategoryBudgets = (token: string, year: number, month: number) => {
-  return apiRequest<CategoryBudgetDto[]>(`/category-budgets?year=${year}&month=${month}`, {
+  return apiRequest<GetCategoryBudgetsResponse>(`/category-budgets?year=${year}&month=${month}`, {
     headers: authHeaders(token),
   });
 };
@@ -43,6 +44,13 @@ export const extractCreatedCategory = (response: CreateCategoryResponse): Catego
     return response.category;
   }
   return null;
+};
+
+export const extractCategoryBudgets = (response: GetCategoryBudgetsResponse): CategoryBudgetDto[] => {
+  if ('data' in response) {
+    return response.data;
+  }
+  return [];
 };
 
 export const createCategoryBudget = (token: string, categoryId: string, limitAmount: number, year: number, month: number) => {

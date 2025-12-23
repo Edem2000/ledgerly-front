@@ -9,6 +9,10 @@ export type CategoryBudgetDto = {
   limitAmount: number;
 };
 
+export type GetCategoryBudgetsResponse =
+  | { success: true; data: CategoryBudgetDto[] }
+  | ErrorDto;
+
 export type CategoryResponse = {
   id: string;
   title: string;
