@@ -10,7 +10,6 @@ import {
   extractCreatedCategory,
   getCategories,
   getCategoryBudgets,
-  updateCategoryBudget,
 } from '../api/categories';
 
 type UnitMode = 'k' | 'full';
@@ -409,16 +408,12 @@ export const Dashboard = () => {
         meta = { id: created.id, title: created.title, color: created.color, icon: created.icon };
         setCategoriesMeta((prev) => [...prev, meta]);
       }
-      if (existing != null) {
-        await updateCategoryBudget(tokens.accessToken, meta.id, n, budgetPeriod.year, budgetPeriod.month);
-      } else {
-        await createCategoryBudget(tokens.accessToken, {
-          categoryId: meta.id,
-          year: budgetPeriod.year,
-          month: budgetPeriod.month,
-          limitAmount: n,
-        });
-      }
+      await createCategoryBudget(tokens.accessToken, {
+        categoryId: meta.id,
+        year: budgetPeriod.year,
+        month: budgetPeriod.month,
+        limitAmount: n,
+      });
       setBudgets((prev) => ({ ...prev, [name]: n }));
       showToast(existing != null ? `Limit for ${name} updated` : `Limit for ${name} added`);
     } catch (err) {
@@ -457,7 +452,12 @@ export const Dashboard = () => {
       return;
     }
     try {
-      await updateCategoryBudget(tokens.accessToken, meta.id, n, budgetPeriod.year, budgetPeriod.month);
+      await createCategoryBudget(tokens.accessToken, {
+        categoryId: meta.id,
+        year: budgetPeriod.year,
+        month: budgetPeriod.month,
+        limitAmount: n,
+      });
       setBudgets((prev) => ({ ...prev, [cat]: n }));
       showToast(`Limit for ${cat} updated`);
     } catch (err) {

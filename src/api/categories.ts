@@ -69,14 +69,6 @@ export const createCategoryBudget = (
   });
 };
 
-export const updateCategoryBudget = (token: string, categoryId: string, limitAmount: number, year: number, month: number) => {
-  return apiRequest<CategoryBudgetDto>(`/categories/${categoryId}/budget?year=${year}&month=${month}`, {
-    method: 'PUT',
-    headers: authHeaders(token),
-    body: JSON.stringify({ limitAmount }),
-  });
-};
-
 export const deleteCategoryBudget = (token: string, categoryId: string, year: number, month: number) => {
   return apiRequest<void>(`/categories/${categoryId}/budget?year=${year}&month=${month}`, {
     method: 'DELETE',
