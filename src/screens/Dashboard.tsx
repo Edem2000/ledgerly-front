@@ -378,6 +378,11 @@ export const Dashboard = () => {
       showToast('Category name required');
       return;
     }
+    const meta = categoriesByName.get(name);
+    if (!meta) {
+      showToast('Category not found');
+      return;
+    }
     const existing = budgets[name];
     const def = existing != null ? String(existing) : '';
     const val = prompt(`Monthly limit for "${name}" (in thousands UZS):`, def);
