@@ -11,6 +11,7 @@ import {
   getCategories,
   getCategoryBudgets,
 } from '../api/categories';
+import { createTransaction, extractCreatedTransaction } from '../api/transactions';
 
 type UnitMode = 'k' | 'full';
 type BudgetSortMode = 'name' | 'spent' | 'over';
@@ -64,6 +65,8 @@ const parseMonthKey = (value: string) => {
   }
   return { year, month };
 };
+const toPaddedDate = (year: number, month: number, day: number) =>
+  `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
 const baseTransactions: Transaction[] = [
   { date: '2025-10-02', amount: 1500.0, type: 'income', category: 'Salary', merchant: 'Employer Inc.' },
@@ -227,16 +230,25 @@ export const Dashboard = () => {
 
   useEffect(() => {
     if (!isAddOpen) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date();
+    const parsed = selectedMonth ? parseMonthKey(selectedMonth) : null;
+    let dateValue = today.toISOString().slice(0, 10);
+    if (parsed) {
+      const isCurrentMonth =
+        parsed.year === today.getFullYear() && parsed.month === today.getMonth() + 1;
+      const day = isCurrentMonth ? today.getDate() : 1;
+      const lastDay = new Date(parsed.year, parsed.month, 0).getDate();
+      dateValue = toPaddedDate(parsed.year, parsed.month, Math.min(day, lastDay));
+    }
     setFormState((prev) => ({
       ...prev,
-      date: today,
+      date: dateValue,
       type: 'expense',
       amount: '',
       category: '',
       merchant: '',
     }));
-  }, [isAddOpen]);
+  }, [isAddOpen, selectedMonth]);
 
   useEffect(() => {
     return () => {
@@ -332,21 +344,51 @@ export const Dashboard = () => {
     setFormState((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
-  const handleAddSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleAddSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const { date, type, amount, category, merchant } = formState;
     const amountRaw = parseFloat(amount);
     if (!date || !Number.isFinite(amountRaw) || amountRaw <= 0) return;
-    const entryAmount = type === 'expense' ? -Math.abs(amountRaw) : Math.abs(amountRaw);
-    const entry: Transaction = {
-      date,
-      amount: entryAmount,
-      type,
-      category: (category || 'Other').trim(),
-      merchant: merchant.trim(),
-    };
-    setExtraTransactions((prev) => [...prev, entry]);
-    setIsAddOpen(false);
+    if (!tokens?.accessToken) {
+      showToast('Please sign in to add transactions');
+      return;
+    }
+    const trimmedCategory = (category || 'Other').trim();
+    const meta = categoriesMeta.find((item) => item.title === trimmedCategory);
+    if (!meta) {
+      showToast('Select a valid category');
+      return;
+    }
+    const title = merchant.trim() || trimmedCategory;
+    try {
+      const response = await createTransaction(tokens.accessToken, {
+        categoryId: meta.id,
+        title,
+        type,
+        amount: amountRaw,
+      });
+      const created = extractCreatedTransaction(response);
+      if (!created) {
+        showToast('Unable to add transaction');
+        return;
+      }
+      const createdDate = created.occurredAt ? created.occurredAt.slice(0, 10) : date;
+      const normalizedAmount =
+        created.type === 'expense' ? -Math.abs(created.amount) : Math.abs(created.amount);
+      const entry: Transaction = {
+        date: createdDate,
+        amount: normalizedAmount,
+        type: created.type,
+        category: trimmedCategory,
+        merchant: created.title || title,
+      };
+      setExtraTransactions((prev) => [...prev, entry]);
+      setSelectedMonth(monthKey(fmtDate(createdDate)));
+      showToast('Transaction added');
+      setIsAddOpen(false);
+    } catch (err) {
+      showToast('Unable to add transaction');
+    }
   };
 
   const handleClearAdded = () => {
