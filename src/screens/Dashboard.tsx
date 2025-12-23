@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
 import { useAuth } from '../auth/auth-context';
+import {
+  createCategoryBudget,
+  deleteCategoryBudget,
+  getCategories,
+  getCategoryBudgets,
+  updateCategoryBudget,
+} from '../api/categories';
 
 type UnitMode = 'k' | 'full';
 type BudgetSortMode = 'name' | 'spent' | 'over';
@@ -16,6 +23,10 @@ type Transaction = {
 };
 
 type Budgets = Record<string, number>;
+type CategoryMeta = {
+  id: string;
+  name: string;
+};
 
 type FormState = {
   date: string;
@@ -37,15 +48,6 @@ const fmtFull = (k: number) => (k < 0 ? '-' : '') + nfFull.format(Math.abs(k) * 
 
 const fmtDate = (s: string) => new Date(`${s}T00:00:00`);
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
-const defaultBudgets: Budgets = {
-  Groceries: 300,
-  Rent: 500,
-  Transport: 120,
-  Entertainment: 120,
-  Utilities: 150,
-  Other: 120,
-};
 
 const baseTransactions: Transaction[] = [
   { date: '2025-10-02', amount: 1500.0, type: 'income', category: 'Salary', merchant: 'Employer Inc.' },
@@ -72,7 +74,6 @@ const baseTransactions: Transaction[] = [
 ];
 
 const LS_KEY = 'pfaExtras';
-const BUDGETS_LS = 'pfaBudgets';
 const BUDGET_SORT_LS = 'pfaBudgetSort';
 const UNIT_LS = 'pfaUnit';
 
@@ -94,15 +95,14 @@ const getStoredString = (key: string, fallback: string): string => {
 };
 
 export const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, tokens } = useAuth();
   const [unitMode, setUnitMode] = useState<UnitMode>(getStoredString(UNIT_LS, 'k') as UnitMode);
   const [budgetSortMode, setBudgetSortMode] = useState<BudgetSortMode>(
     getStoredString(BUDGET_SORT_LS, 'name') as BudgetSortMode,
   );
-  const [budgets, setBudgets] = useState<Budgets>(() => {
-    const saved = getStored<Budgets | null>(BUDGETS_LS, null);
-    return saved && typeof saved === 'object' ? { ...defaultBudgets, ...saved } : { ...defaultBudgets };
-  });
+  const [budgets, setBudgets] = useState<Budgets>({});
+  const [categoriesMeta, setCategoriesMeta] = useState<CategoryMeta[]>([]);
+  const [budgetsError, setBudgetsError] = useState<string | null>(null);
   const [extraTransactions, setExtraTransactions] = useState<Transaction[]>(() => getStored<Transaction[]>(LS_KEY, []));
   const [selectedMonth, setSelectedMonth] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -157,12 +157,36 @@ export const Dashboard = () => {
   }, [budgetSortMode]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(BUDGETS_LS, JSON.stringify(budgets));
-    } catch {
-      // ignore
-    }
-  }, [budgets]);
+    let isMounted = true;
+    const loadCategories = async () => {
+      if (!tokens?.accessToken) return;
+      setBudgetsError(null);
+      try {
+        const [categoriesResponse, budgetsResponse] = await Promise.all([
+          getCategories(tokens.accessToken),
+          getCategoryBudgets(tokens.accessToken),
+        ]);
+        if (!isMounted) return;
+        const categoryList = categoriesResponse.map((item) => ({ id: item.id, name: item.name }));
+        const budgetMap = budgetsResponse.reduce<Record<string, number>>((acc, item) => {
+          const category = categoriesResponse.find((cat) => cat.id === item.categoryId);
+          if (category) {
+            acc[category.name] = item.limitAmount;
+          }
+          return acc;
+        }, {});
+        setCategoriesMeta(categoryList);
+        setBudgets(budgetMap);
+      } catch (err) {
+        if (!isMounted) return;
+        setBudgetsError('Unable to load categories and budgets.');
+      }
+    };
+    loadCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, [tokens?.accessToken]);
 
   useEffect(() => {
     try {
@@ -228,7 +252,11 @@ export const Dashboard = () => {
   }, [view]);
 
   const categories = useMemo(() => {
-    const categorySet = new Set([...Object.keys(budgets), ...Object.keys(spentByCat)]);
+    const categorySet = new Set([
+      ...categoriesMeta.map((item) => item.name),
+      ...Object.keys(budgets),
+      ...Object.keys(spentByCat),
+    ]);
     const list = Array.from(categorySet);
     if (budgetSortMode === 'name') {
       list.sort((a, b) => a.localeCompare(b));
@@ -241,12 +269,12 @@ export const Dashboard = () => {
       list.sort((a, b) => Number(overMap[b]) - Number(overMap[a]) || a.localeCompare(b));
     }
     return list;
-  }, [budgets, spentByCat, budgetSortMode]);
+  }, [budgets, spentByCat, budgetSortMode, categoriesMeta]);
 
   const categoryOptions = useMemo(() => {
-    const set = new Set(allTx.map((t) => t.category).filter(Boolean));
+    const set = new Set([...categoriesMeta.map((item) => item.name), ...allTx.map((t) => t.category)].filter(Boolean));
     return Array.from(set).sort();
-  }, [allTx]);
+  }, [allTx, categoriesMeta]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -310,10 +338,19 @@ export const Dashboard = () => {
     }, 350);
   };
 
-  const handleAddBudget = () => {
+  const categoriesByName = useMemo(() => {
+    return new Map(categoriesMeta.map((item) => [item.name, item]));
+  }, [categoriesMeta]);
+
+  const handleAddBudget = async () => {
     const name = (prompt('Category name:', '') || '').trim();
     if (!name) {
       showToast('Category name required');
+      return;
+    }
+    const meta = categoriesByName.get(name);
+    if (!meta) {
+      showToast('Category not found');
       return;
     }
     const existing = budgets[name];
@@ -321,35 +358,59 @@ export const Dashboard = () => {
     const val = prompt(`Monthly limit for "${name}" (in thousands UZS):`, def);
     if (val === null) return;
     const n = parseFloat((val || '').replace(',', '.'));
-    if (Number.isFinite(n) && n >= 0) {
+    if (!Number.isFinite(n) || n < 0) {
+      showToast('Invalid number');
+      return;
+    }
+    if (!tokens?.accessToken) return;
+    try {
+      if (existing != null) {
+        await updateCategoryBudget(tokens.accessToken, meta.id, n);
+      } else {
+        await createCategoryBudget(tokens.accessToken, meta.id, n);
+      }
       setBudgets((prev) => ({ ...prev, [name]: n }));
       showToast(existing != null ? `Limit for ${name} updated` : `Limit for ${name} added`);
-    } else {
-      showToast('Invalid number');
+    } catch (err) {
+      showToast('Unable to save limit');
     }
   };
 
-  const handleEditBudget = (cat: string) => {
+  const handleEditBudget = async (cat: string) => {
     const current = budgets[cat] ?? 0;
     const val = prompt(`New monthly limit for "${cat}" (in thousands UZS):`, String(current));
     if (val === null) return;
     const n = parseFloat((val || '').replace(',', '.'));
-    if (Number.isFinite(n) && n >= 0) {
+    if (!Number.isFinite(n) || n < 0) {
+      showToast('Invalid number');
+      return;
+    }
+    const meta = categoriesByName.get(cat);
+    if (!meta || !tokens?.accessToken) return;
+    try {
+      await updateCategoryBudget(tokens.accessToken, meta.id, n);
       setBudgets((prev) => ({ ...prev, [cat]: n }));
       showToast(`Limit for ${cat} updated`);
-    } else {
-      showToast('Invalid number');
+    } catch (err) {
+      showToast('Unable to save limit');
     }
   };
 
-  const handleDeleteBudget = (cat: string) => {
+  const handleDeleteBudget = async (cat: string) => {
     if (!confirm(`Delete limit for "${cat}"?`)) return;
-    setBudgets((prev) => {
-      const next = { ...prev };
-      delete next[cat];
-      return next;
-    });
-    showToast(`Limit for ${cat} deleted`);
+    const meta = categoriesByName.get(cat);
+    if (!meta || !tokens?.accessToken) return;
+    try {
+      await deleteCategoryBudget(tokens.accessToken, meta.id);
+      setBudgets((prev) => {
+        const next = { ...prev };
+        delete next[cat];
+        return next;
+      });
+      showToast(`Limit for ${cat} deleted`);
+    } catch (err) {
+      showToast('Unable to delete limit');
+    }
   };
 
   const sortedTransactions = useMemo(() => {
@@ -582,6 +643,11 @@ export const Dashboard = () => {
                 );
               })}
             </div>
+            {budgetsError ? (
+              <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                {budgetsError}
+              </div>
+            ) : null}
           </div>
         </section>
 
