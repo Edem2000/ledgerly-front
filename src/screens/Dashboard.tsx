@@ -11,6 +11,13 @@ import {
   getCategories,
   getCategoryBudgets,
 } from '../api/categories';
+import {
+  createTransaction,
+  extractCreatedTransaction,
+  extractSuggestedCategories,
+  suggestTransactionCategory,
+} from '../api/transactions';
+import type { SuggestedCategory } from '../api/types';
 
 type UnitMode = 'k' | 'full';
 type BudgetSortMode = 'name' | 'spent' | 'over';
@@ -21,8 +28,7 @@ type Transaction = {
   amount: number;
   type: TransactionType;
   category: string;
-  merchant?: string;
-  note?: string;
+  title?: string;
 };
 
 type Budgets = Record<string, number>;
@@ -31,14 +37,6 @@ type CategoryMeta = {
   title: string;
   color: string;
   icon: string | null;
-};
-
-type FormState = {
-  date: string;
-  type: TransactionType;
-  amount: string;
-  category: string;
-  merchant: string;
 };
 
 type ToastState = {
@@ -64,29 +62,31 @@ const parseMonthKey = (value: string) => {
   }
   return { year, month };
 };
+const toPaddedDate = (year: number, month: number, day: number) =>
+  `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
 const baseTransactions: Transaction[] = [
-  { date: '2025-10-02', amount: 1500.0, type: 'income', category: 'Salary', merchant: 'Employer Inc.' },
-  { date: '2025-10-03', amount: -480.0, type: 'expense', category: 'Rent', merchant: 'Landlord' },
-  { date: '2025-10-04', amount: -64.4, type: 'expense', category: 'Groceries', merchant: 'Supermarket' },
-  { date: '2025-10-05', amount: -12.5, type: 'expense', category: 'Transport', merchant: 'Metro' },
-  { date: '2025-10-05', amount: -21.9, type: 'expense', category: 'Entertainment', merchant: 'Cinema' },
-  { date: '2025-10-06', amount: -45.8, type: 'expense', category: 'Groceries', merchant: 'Farmer Market' },
-  { date: '2025-10-08', amount: -14.2, type: 'expense', category: 'Transport', merchant: 'Taxi' },
-  { date: '2025-10-10', amount: -57.6, type: 'expense', category: 'Utilities', merchant: 'Energy Co.' },
-  { date: '2025-10-12', amount: 120.0, type: 'income', category: 'Other', merchant: 'Freelance' },
-  { date: '2025-10-13', amount: -23.1, type: 'expense', category: 'Groceries', merchant: 'Mini-Mart' },
-  { date: '2025-10-15', amount: -18.0, type: 'expense', category: 'Entertainment', merchant: 'Spotify' },
-  { date: '2025-10-18', amount: -6.8, type: 'expense', category: 'Other', merchant: 'Coffee' },
-  { date: '2025-10-20', amount: -74.2, type: 'expense', category: 'Groceries', merchant: 'Supermarket' },
-  { date: '2025-10-22', amount: -12.2, type: 'expense', category: 'Transport', merchant: 'Bus' },
-  { date: '2025-10-24', amount: -95.0, type: 'expense', category: 'Utilities', merchant: 'Water Co.' },
-  { date: '2025-10-26', amount: 80.0, type: 'income', category: 'Other', merchant: 'FB Marketplace' },
-  { date: '2025-10-28', amount: -43.9, type: 'expense', category: 'Groceries', merchant: 'Mini-Mart' },
-  { date: '2025-10-28', amount: -12.5, type: 'expense', category: 'Transport', merchant: 'Metro' },
-  { date: '2025-10-30', amount: -25.0, type: 'expense', category: 'Entertainment', merchant: 'Movies' },
-  { date: '2025-11-01', amount: -68.0, type: 'expense', category: 'Groceries', merchant: 'Supermarket' },
-  { date: '2025-11-01', amount: 50.0, type: 'income', category: 'Other', merchant: 'Gift' },
+  { date: '2025-10-02', amount: 1500.0, type: 'income', category: 'Salary', title: 'Employer Inc.' },
+  { date: '2025-10-03', amount: -480.0, type: 'expense', category: 'Rent', title: 'Landlord' },
+  { date: '2025-10-04', amount: -64.4, type: 'expense', category: 'Groceries', title: 'Supermarket' },
+  { date: '2025-10-05', amount: -12.5, type: 'expense', category: 'Transport', title: 'Metro' },
+  { date: '2025-10-05', amount: -21.9, type: 'expense', category: 'Entertainment', title: 'Cinema' },
+  { date: '2025-10-06', amount: -45.8, type: 'expense', category: 'Groceries', title: 'Farmer Market' },
+  { date: '2025-10-08', amount: -14.2, type: 'expense', category: 'Transport', title: 'Taxi' },
+  { date: '2025-10-10', amount: -57.6, type: 'expense', category: 'Utilities', title: 'Energy Co.' },
+  { date: '2025-10-12', amount: 120.0, type: 'income', category: 'Other', title: 'Freelance' },
+  { date: '2025-10-13', amount: -23.1, type: 'expense', category: 'Groceries', title: 'Mini-Mart' },
+  { date: '2025-10-15', amount: -18.0, type: 'expense', category: 'Entertainment', title: 'Spotify' },
+  { date: '2025-10-18', amount: -6.8, type: 'expense', category: 'Other', title: 'Coffee' },
+  { date: '2025-10-20', amount: -74.2, type: 'expense', category: 'Groceries', title: 'Supermarket' },
+  { date: '2025-10-22', amount: -12.2, type: 'expense', category: 'Transport', title: 'Bus' },
+  { date: '2025-10-24', amount: -95.0, type: 'expense', category: 'Utilities', title: 'Water Co.' },
+  { date: '2025-10-26', amount: 80.0, type: 'income', category: 'Other', title: 'FB Marketplace' },
+  { date: '2025-10-28', amount: -43.9, type: 'expense', category: 'Groceries', title: 'Mini-Mart' },
+  { date: '2025-10-28', amount: -12.5, type: 'expense', category: 'Transport', title: 'Metro' },
+  { date: '2025-10-30', amount: -25.0, type: 'expense', category: 'Entertainment', title: 'Movies' },
+  { date: '2025-11-01', amount: -68.0, type: 'expense', category: 'Groceries', title: 'Supermarket' },
+  { date: '2025-11-01', amount: 50.0, type: 'income', category: 'Other', title: 'Gift' },
 ];
 
 const LS_KEY = 'pfaExtras';
@@ -130,13 +130,48 @@ export const Dashboard = () => {
   const chartRef = useRef<Chart | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [formState, setFormState] = useState<FormState>({
-    date: '',
-    type: 'expense',
-    amount: '',
-    category: '',
-    merchant: '',
-  });
+  const [transactionDate, setTransactionDate] = useState('');
+  const [transactionType, setTransactionType] = useState<TransactionType>('expense');
+  const [transactionAmount, setTransactionAmount] = useState('');
+  const [transactionCategory, setTransactionCategory] = useState('');
+  const [transactionTitle, setTransactionTitle] = useState('');
+  const [transactionCategoryId, setTransactionCategoryId] = useState<string | undefined>(undefined);
+  const [suggestedCategories, setSuggestedCategories] = useState<SuggestedCategory[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const suggestRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (!isAddOpen) return;
+    const trimmedTitle = transactionTitle.trim();
+    if (!trimmedTitle) {
+      setSuggestedCategories([]);
+      setIsSuggesting(false);
+      return;
+    }
+    if (!tokens?.accessToken) {
+      setSuggestedCategories([]);
+      setIsSuggesting(false);
+      return;
+    }
+    const requestId = suggestRequestRef.current + 1;
+    suggestRequestRef.current = requestId;
+    setIsSuggesting(true);
+    const loadSuggestions = async () => {
+      try {
+        const response = await suggestTransactionCategory(tokens.accessToken, trimmedTitle);
+        if (suggestRequestRef.current !== requestId) return;
+        setSuggestedCategories(extractSuggestedCategories(response));
+      } catch (err) {
+        if (suggestRequestRef.current !== requestId) return;
+        setSuggestedCategories([]);
+      } finally {
+        if (suggestRequestRef.current === requestId) {
+          setIsSuggesting(false);
+        }
+      }
+    };
+    loadSuggestions();
+  }, [transactionTitle, isAddOpen, tokens?.accessToken]);
 
   const fmtAmount = (k: number) => (unitMode === 'full' ? fmtFull(k) : fmtK(k));
 
@@ -227,16 +262,24 @@ export const Dashboard = () => {
 
   useEffect(() => {
     if (!isAddOpen) return;
-    const today = new Date().toISOString().slice(0, 10);
-    setFormState((prev) => ({
-      ...prev,
-      date: today,
-      type: 'expense',
-      amount: '',
-      category: '',
-      merchant: '',
-    }));
-  }, [isAddOpen]);
+    const today = new Date();
+    const parsed = selectedMonth ? parseMonthKey(selectedMonth) : null;
+    let dateValue = today.toISOString().slice(0, 10);
+    if (parsed) {
+      const isCurrentMonth =
+        parsed.year === today.getFullYear() && parsed.month === today.getMonth() + 1;
+      const day = isCurrentMonth ? today.getDate() : 1;
+      const lastDay = new Date(parsed.year, parsed.month, 0).getDate();
+      dateValue = toPaddedDate(parsed.year, parsed.month, Math.min(day, lastDay));
+    }
+    setTransactionDate(dateValue);
+    setTransactionType('expense');
+    setTransactionAmount('');
+    setTransactionCategory('');
+    setTransactionTitle('');
+    setTransactionCategoryId(undefined);
+    setSuggestedCategories([]);
+  }, [isAddOpen, selectedMonth]);
 
   useEffect(() => {
     return () => {
@@ -328,25 +371,117 @@ export const Dashboard = () => {
     });
   }, [spentByCat]);
 
-  const handleFormChange = (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormState((prev) => ({ ...prev, [field]: event.target.value }));
+  const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTransactionDate(event.target.value);
   };
 
-  const handleAddSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setTransactionType(event.target.value as TransactionType);
+  };
+
+  const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTransactionAmount(event.target.value);
+  };
+
+  const handleCategoryChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTransactionCategory(event.target.value);
+    setTransactionCategoryId(undefined);
+  };
+
+  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setTransactionTitle(event.target.value);
+  };
+
+  const handleSuggestedCategorySelect = async (suggestion: SuggestedCategory) => {
+    if (!tokens?.accessToken) {
+      showToast('Please sign in to add transactions');
+      return;
+    }
+    if (suggestion.aiSuggested && suggestion.isNew) {
+      try {
+        const createdResponse = await createCategory(tokens.accessToken, {
+          title: suggestion.title,
+          color: DEFAULT_CATEGORY_COLOR,
+          icon: DEFAULT_CATEGORY_ICON ?? undefined,
+        });
+        const created = extractCreatedCategory(createdResponse);
+        if (!created) {
+          showToast('Unable to create category');
+          return;
+        }
+        setCategoriesMeta((prev) => [...prev, created]);
+        setTransactionCategory(created.title);
+        setTransactionCategoryId(created.id);
+        setSuggestedCategories([]);
+        return;
+      } catch (err) {
+        showToast('Unable to create category');
+        return;
+      }
+    }
+    if (suggestion.id && !categoriesMeta.some((item) => item.id === suggestion.id)) {
+      setCategoriesMeta((prev) => [
+        ...prev,
+        {
+          id: suggestion.id!,
+          title: suggestion.title,
+          color: DEFAULT_CATEGORY_COLOR,
+          icon: DEFAULT_CATEGORY_ICON,
+        },
+      ]);
+    }
+    setTransactionCategory(suggestion.title);
+    setTransactionCategoryId(suggestion.id);
+    setSuggestedCategories([]);
+  };
+
+  const handleAddSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const { date, type, amount, category, merchant } = formState;
-    const amountRaw = parseFloat(amount);
-    if (!date || !Number.isFinite(amountRaw) || amountRaw <= 0) return;
-    const entryAmount = type === 'expense' ? -Math.abs(amountRaw) : Math.abs(amountRaw);
-    const entry: Transaction = {
-      date,
-      amount: entryAmount,
-      type,
-      category: (category || 'Other').trim(),
-      merchant: merchant.trim(),
-    };
-    setExtraTransactions((prev) => [...prev, entry]);
-    setIsAddOpen(false);
+    const amountRaw = parseFloat(transactionAmount);
+    if (!transactionDate || !Number.isFinite(amountRaw) || amountRaw <= 0) return;
+    if (!tokens?.accessToken) {
+      showToast('Please sign in to add transactions');
+      return;
+    }
+    const trimmedCategory = (transactionCategory || 'Other').trim();
+    const meta = transactionCategoryId
+      ? categoriesMeta.find((item) => item.id === transactionCategoryId) ||
+        categoriesMeta.find((item) => item.title === trimmedCategory)
+      : categoriesMeta.find((item) => item.title === trimmedCategory);
+    if (!meta) {
+      showToast('Select a valid category');
+      return;
+    }
+    const transactionTitleValue = transactionTitle.trim() || trimmedCategory;
+    try {
+      const response = await createTransaction(tokens.accessToken, {
+        categoryId: meta.id,
+        title: transactionTitleValue,
+        type: transactionType,
+        amount: amountRaw,
+      });
+      const created = extractCreatedTransaction(response);
+      if (!created) {
+        showToast('Unable to add transaction');
+        return;
+      }
+      const createdDate = created.occurredAt ? created.occurredAt.slice(0, 10) : transactionDate;
+      const normalizedAmount =
+        created.type === 'expense' ? -Math.abs(created.amount) : Math.abs(created.amount);
+      const entry: Transaction = {
+        date: createdDate,
+        amount: normalizedAmount,
+        type: created.type,
+        category: trimmedCategory,
+        title: created.title || transactionTitleValue,
+      };
+      setExtraTransactions((prev) => [...prev, entry]);
+      setSelectedMonth(monthKey(fmtDate(createdDate)));
+      showToast('Transaction added');
+      setIsAddOpen(false);
+    } catch (err) {
+      showToast('Unable to add transaction');
+    }
   };
 
   const handleClearAdded = () => {
@@ -553,13 +688,13 @@ export const Dashboard = () => {
               <div className="form-row">
                 <label>
                   Date<br />
-                  <input type="date" id="fDate" required value={formState.date} onChange={handleFormChange('date')} />
+                  <input type="date" id="fDate" required value={transactionDate} onChange={handleDateChange} />
                 </label>
               </div>
               <div className="form-row">
                 <label>
                   Type<br />
-                  <select id="fType" value={formState.type} onChange={handleFormChange('type')}>
+                  <select id="fType" value={transactionType} onChange={handleTypeChange}>
                     <option value="expense">Expense</option>
                     <option value="income">Income</option>
                   </select>
@@ -575,8 +710,8 @@ export const Dashboard = () => {
                     min="0.01"
                     required
                     placeholder="0.00"
-                    value={formState.amount}
-                    onChange={handleFormChange('amount')}
+                    value={transactionAmount}
+                    onChange={handleAmountChange}
                   />
                 </label>
               </div>
@@ -588,25 +723,48 @@ export const Dashboard = () => {
                     id="fCategory"
                     required
                     placeholder="e.g. Groceries"
-                    value={formState.category}
-                    onChange={handleFormChange('category')}
+                    value={transactionCategory}
+                    onChange={handleCategoryChange}
                   />
                   <datalist id="catList">
                     {categoryOptions.map((cat) => (
                       <option key={cat} value={cat}></option>
                     ))}
                   </datalist>
+                  {isSuggesting ? (
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      Looking up suggestions...
+                    </div>
+                  ) : suggestedCategories.length ? (
+                    <div className="muted" style={{ marginTop: 6 }}>
+                      Suggested categories:
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                        {suggestedCategories.map((suggestion) => (
+                          <button
+                            key={`${suggestion.title}-${suggestion.id ?? 'new'}`}
+                            type="button"
+                            className="mini"
+                            onClick={() => handleSuggestedCategorySelect(suggestion)}
+                          >
+                            {suggestion.title}
+                            {suggestion.aiSuggested ? ' ✨' : ''}
+                            {suggestion.isNew ? ' (new)' : ''}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </label>
               </div>
               <div className="form-row" style={{ flex: 2 }}>
                 <label>
-                  Merchant / Note<br />
+                  Title<br />
                   <input
                     type="text"
-                    id="fMerchant"
+                    id="fTitle"
                     placeholder="optional"
-                    value={formState.merchant}
-                    onChange={handleFormChange('merchant')}
+                    value={transactionTitle}
+                    onChange={handleTitleChange}
                   />
                 </label>
               </div>
@@ -735,7 +893,7 @@ export const Dashboard = () => {
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Merchant / Note</th>
+                  <th>Title</th>
                   <th>Category</th>
                   <th className="t-amount">Amount</th>
                 </tr>
@@ -745,7 +903,7 @@ export const Dashboard = () => {
                   sortedTransactions.map((t, index) => (
                     <tr key={`${t.date}-${index}`}>
                       <td>{t.date}</td>
-                      <td>{t.merchant || t.note || ''}</td>
+                      <td>{t.title || ''}</td>
                       <td>{t.category || '—'}</td>
                       <td className="t-amount">{fmtAmount(t.amount)}</td>
                     </tr>
