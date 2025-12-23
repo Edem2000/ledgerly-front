@@ -17,6 +17,14 @@ export const getCategoryBudgets = (token: string) => {
   });
 };
 
+export const createCategory = (token: string, name: string) => {
+  return apiRequest<CategoryDto>('/categories', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ name }),
+  });
+};
+
 export const createCategoryBudget = (token: string, categoryId: string, limitAmount: number) => {
   return apiRequest<CategoryBudgetDto>(`/categories/${categoryId}/budget`, {
     method: 'POST',

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
 import { useAuth } from '../auth/auth-context';
 import {
+  createCategory,
   createCategoryBudget,
   deleteCategoryBudget,
   getCategories,
@@ -364,6 +365,12 @@ export const Dashboard = () => {
     }
     if (!tokens?.accessToken) return;
     try {
+      let meta = categoriesByName.get(name);
+      if (!meta) {
+        const created = await createCategory(tokens.accessToken, name);
+        meta = { id: created.id, name: created.name };
+        setCategoriesMeta((prev) => [...prev, meta]);
+      }
       if (existing != null) {
         await updateCategoryBudget(tokens.accessToken, meta.id, n);
       } else {
