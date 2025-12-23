@@ -412,7 +412,12 @@ export const Dashboard = () => {
       if (existing != null) {
         await updateCategoryBudget(tokens.accessToken, meta.id, n, budgetPeriod.year, budgetPeriod.month);
       } else {
-        await createCategoryBudget(tokens.accessToken, meta.id, n, budgetPeriod.year, budgetPeriod.month);
+        await createCategoryBudget(tokens.accessToken, {
+          categoryId: meta.id,
+          year: budgetPeriod.year,
+          month: budgetPeriod.month,
+          limitAmount: n,
+        });
       }
       setBudgets((prev) => ({ ...prev, [name]: n }));
       showToast(existing != null ? `Limit for ${name} updated` : `Limit for ${name} added`);

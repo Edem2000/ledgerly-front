@@ -53,11 +53,19 @@ export const extractCategoryBudgets = (response: GetCategoryBudgetsResponse): Ca
   return [];
 };
 
-export const createCategoryBudget = (token: string, categoryId: string, limitAmount: number, year: number, month: number) => {
-  return apiRequest<CategoryBudgetDto>(`/categories/${categoryId}/budget?year=${year}&month=${month}`, {
+export const createCategoryBudget = (
+  token: string,
+  payload: {
+    categoryId: string;
+    year: number;
+    month: number;
+    limitAmount?: number;
+  },
+) => {
+  return apiRequest<CategoryBudgetDto>('/category-budgets', {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ limitAmount }),
+    body: JSON.stringify(payload),
   });
 };
 
