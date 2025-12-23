@@ -95,3 +95,44 @@ export type RegisterResponseDto =
 export type LoginResponseDto =
   | { success: true; user: UserResponseDto; tokens: AuthTokens }
   | ErrorDto;
+
+export type TransactionResponseDto = {
+  id: string;
+  userId: string;
+  categoryId: string;
+  title: string;
+  type: TransactionType;
+  amount: number;
+  currency: Currency;
+  occurredAt: string;
+  note?: string;
+  createdAt: string;
+};
+
+export type CreateTransactionRequest = {
+  categoryId: string;
+  title: string;
+  type: TransactionType;
+  amount: number;
+};
+
+export type CreateTransactionResponseDto =
+  | {
+      success: boolean;
+      transaction: TransactionResponseDto;
+    }
+  | ErrorDto;
+
+export type SuggestedCategory = {
+  id?: string;
+  title: string;
+  aiSuggested: boolean;
+  isNew: boolean;
+};
+
+export type SuggestCategoryResponseDto =
+  | {
+      success: boolean;
+      data: SuggestedCategory[];
+    }
+  | ErrorDto;
