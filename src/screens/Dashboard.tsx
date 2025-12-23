@@ -952,3 +952,35 @@ export const Dashboard = () => {
     </>
   );
 };
+  useEffect(() => {
+    if (!isAddOpen) return;
+    const titleValue = formState.title.trim();
+    if (!titleValue) {
+      setSuggestedCategories([]);
+      setIsSuggesting(false);
+      return;
+    }
+    if (!tokens?.accessToken) {
+      setSuggestedCategories([]);
+      setIsSuggesting(false);
+      return;
+    }
+    const requestId = suggestRequestRef.current + 1;
+    suggestRequestRef.current = requestId;
+    setIsSuggesting(true);
+    const loadSuggestions = async () => {
+      try {
+        const response = await suggestTransactionCategory(tokens.accessToken, titleValue);
+        if (suggestRequestRef.current !== requestId) return;
+        setSuggestedCategories(extractSuggestedCategories(response));
+      } catch (err) {
+        if (suggestRequestRef.current !== requestId) return;
+        setSuggestedCategories([]);
+      } finally {
+        if (suggestRequestRef.current === requestId) {
+          setIsSuggesting(false);
+        }
+      }
+    };
+    loadSuggestions();
+  }, [formState.title, isAddOpen, tokens?.accessToken]);
