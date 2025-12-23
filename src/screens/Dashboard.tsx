@@ -392,8 +392,18 @@ export const Dashboard = () => {
       showToast('Invalid number');
       return;
     }
-    const meta = categoriesByName.get(cat);
-    if (!meta || !tokens?.accessToken) return;
+    if (!tokens?.accessToken) return;
+    let meta = categoriesByName.get(cat);
+    try {
+      if (!meta) {
+        const created = await createCategory(tokens.accessToken, cat);
+        meta = { id: created.id, name: created.name };
+        setCategoriesMeta((prev) => [...prev, meta]);
+      }
+    } catch (err) {
+      showToast('Unable to create category');
+      return;
+    }
     try {
       await updateCategoryBudget(tokens.accessToken, meta.id, n);
       setBudgets((prev) => ({ ...prev, [cat]: n }));
@@ -406,7 +416,11 @@ export const Dashboard = () => {
   const handleDeleteBudget = async (cat: string) => {
     if (!confirm(`Delete limit for "${cat}"?`)) return;
     const meta = categoriesByName.get(cat);
-    if (!meta || !tokens?.accessToken) return;
+    if (!meta) {
+      showToast('Category not found');
+      return;
+    }
+    if (!tokens?.accessToken) return;
     try {
       await deleteCategoryBudget(tokens.accessToken, meta.id);
       setBudgets((prev) => {
