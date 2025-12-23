@@ -150,10 +150,10 @@ export const Dashboard = () => {
   const [suggestedCategories, setSuggestedCategories] = useState<SuggestedCategory[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const suggestRequestRef = useRef(0);
+  const titleValue = formState.title.trim();
 
   useEffect(() => {
     if (!isAddOpen) return;
-    const titleValue = formState?.title?.trim?.() ?? '';
     if (!titleValue) {
       setSuggestedCategories([]);
       setIsSuggesting(false);
@@ -182,7 +182,7 @@ export const Dashboard = () => {
       }
     };
     loadSuggestions();
-  }, [formState?.title, isAddOpen, tokens?.accessToken]);
+  }, [titleValue, isAddOpen, tokens?.accessToken]);
 
   const fmtAmount = (k: number) => (unitMode === 'full' ? fmtFull(k) : fmtK(k));
 
