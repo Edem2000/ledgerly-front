@@ -150,11 +150,12 @@ export const Dashboard = () => {
   const [suggestedCategories, setSuggestedCategories] = useState<SuggestedCategory[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const suggestRequestRef = useRef(0);
-  const titleValue = formState.title.trim();
+  const [titleValue, setTitleValue] = useState('');
 
   useEffect(() => {
     if (!isAddOpen) return;
-    if (!titleValue) {
+    const trimmedTitle = titleValue.trim();
+    if (!trimmedTitle) {
       setSuggestedCategories([]);
       setIsSuggesting(false);
       return;
@@ -169,7 +170,7 @@ export const Dashboard = () => {
     setIsSuggesting(true);
     const loadSuggestions = async () => {
       try {
-        const response = await suggestTransactionCategory(tokens.accessToken, titleValue);
+        const response = await suggestTransactionCategory(tokens.accessToken, trimmedTitle);
         if (suggestRequestRef.current !== requestId) return;
         setSuggestedCategories(extractSuggestedCategories(response));
       } catch (err) {
@@ -292,6 +293,7 @@ export const Dashboard = () => {
       title: '',
       categoryId: undefined,
     }));
+    setTitleValue('');
     setSuggestedCategories([]);
   }, [isAddOpen, selectedMonth]);
 
@@ -388,6 +390,9 @@ export const Dashboard = () => {
   const handleFormChange =
     (field: keyof FormState) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const value = event.target.value;
+      if (field === 'title') {
+        setTitleValue(value);
+      }
       setFormState((prev) => ({
         ...prev,
         [field]: value,
