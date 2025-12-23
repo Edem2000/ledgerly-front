@@ -3,6 +3,17 @@ export type UserStatus = 'active' | 'inactive' | 'deleted';
 export type TransactionType = 'income' | 'expense';
 export type Currency = 'UZS';
 
+export type CategoryDto = {
+  id: string;
+  name: string;
+};
+
+export type CategoryBudgetDto = {
+  id: string;
+  categoryId: string;
+  limitAmount: number;
+};
+
 export type MultiLanguage = {
   ru: string;
   uz: string;
