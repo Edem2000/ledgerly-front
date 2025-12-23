@@ -354,7 +354,7 @@ export const Dashboard = () => {
 
   useEffect(() => {
     if (!isAddOpen) return;
-    const titleValue = formState.title.trim();
+    const titleValue = formState?.title?.trim?.() ?? '';
     if (!titleValue) {
       setSuggestedCategories([]);
       setIsSuggesting(false);
@@ -391,7 +391,7 @@ export const Dashboard = () => {
       setFormState((prev) => ({
         ...prev,
         [field]: value,
-        ...(field === 'category' ? { categoryId: undefined } : null),
+        ...(field === 'category' ? { categoryId: undefined } : {}),
       }));
     };
 
