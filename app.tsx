@@ -1,4 +1,7 @@
-const { useEffect, useMemo, useRef, useState } = React;
+import { useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom/client';
+import Chart from 'chart.js/auto';
+import './style.scss';
 
 type UnitMode = 'k' | 'full';
 type BudgetSortMode = 'name' | 'spent' | 'over';
@@ -108,7 +111,7 @@ const App = () => {
   const [clearLoading, setClearLoading] = useState(false);
   const clearTimerRef = useRef<number | null>(null);
   const toastTimerRef = useRef<number | null>(null);
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<Chart | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [formState, setFormState] = useState<FormState>({
