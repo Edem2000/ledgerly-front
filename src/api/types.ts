@@ -122,3 +122,17 @@ export type CreateTransactionResponseDto =
       transaction: TransactionResponseDto;
     }
   | ErrorDto;
+
+export type SuggestedCategory = {
+  id?: string;
+  title: string;
+  aiSuggested: boolean;
+  isNew: boolean;
+};
+
+export type SuggestCategoryResponseDto =
+  | {
+      success: boolean;
+      data: SuggestedCategory[];
+    }
+  | ErrorDto;
