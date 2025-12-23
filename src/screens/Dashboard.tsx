@@ -55,6 +55,15 @@ const fmtDate = (s: string) => new Date(`${s}T00:00:00`);
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 const DEFAULT_CATEGORY_COLOR = '#6d6ef9';
 const DEFAULT_CATEGORY_ICON = null;
+const parseMonthKey = (value: string) => {
+  const [yearPart, monthPart] = value.split('-');
+  const year = Number(yearPart);
+  const month = Number(monthPart);
+  if (!Number.isInteger(year) || !Number.isInteger(month)) {
+    return null;
+  }
+  return { year, month };
+};
 
 const baseTransactions: Transaction[] = [
   { date: '2025-10-02', amount: 1500.0, type: 'income', category: 'Salary', merchant: 'Employer Inc.' },
@@ -136,6 +145,14 @@ export const Dashboard = () => {
     const monthSet = new Set(allTx.map((t) => monthKey(fmtDate(t.date))));
     return Array.from(monthSet).sort();
   }, [allTx]);
+  const budgetPeriod = useMemo(() => {
+    const parsed = selectedMonth ? parseMonthKey(selectedMonth) : null;
+    if (parsed && parsed.year >= 1970 && parsed.year <= 3000 && parsed.month >= 1 && parsed.month <= 12) {
+      return parsed;
+    }
+    const fallback = new Date();
+    return { year: fallback.getFullYear(), month: fallback.getMonth() + 1 };
+  }, [selectedMonth]);
 
   useEffect(() => {
     if (!months.length) {
@@ -171,7 +188,7 @@ export const Dashboard = () => {
       try {
         const [categoriesResponse, budgetsResponse] = await Promise.all([
           getCategories(tokens.accessToken),
-          getCategoryBudgets(tokens.accessToken),
+          getCategoryBudgets(tokens.accessToken, budgetPeriod.year, budgetPeriod.month),
         ]);
         if (!isMounted) return;
         const categoryList = extractCategoryList(categoriesResponse).map((item) => ({
@@ -198,7 +215,7 @@ export const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [tokens?.accessToken]);
+  }, [tokens?.accessToken, budgetPeriod]);
 
   useEffect(() => {
     try {
@@ -392,9 +409,9 @@ export const Dashboard = () => {
         setCategoriesMeta((prev) => [...prev, meta]);
       }
       if (existing != null) {
-        await updateCategoryBudget(tokens.accessToken, meta.id, n);
+        await updateCategoryBudget(tokens.accessToken, meta.id, n, budgetPeriod.year, budgetPeriod.month);
       } else {
-        await createCategoryBudget(tokens.accessToken, meta.id, n);
+        await createCategoryBudget(tokens.accessToken, meta.id, n, budgetPeriod.year, budgetPeriod.month);
       }
       setBudgets((prev) => ({ ...prev, [name]: n }));
       showToast(existing != null ? `Limit for ${name} updated` : `Limit for ${name} added`);
@@ -434,7 +451,7 @@ export const Dashboard = () => {
       return;
     }
     try {
-      await updateCategoryBudget(tokens.accessToken, meta.id, n);
+      await updateCategoryBudget(tokens.accessToken, meta.id, n, budgetPeriod.year, budgetPeriod.month);
       setBudgets((prev) => ({ ...prev, [cat]: n }));
       showToast(`Limit for ${cat} updated`);
     } catch (err) {
@@ -451,7 +468,7 @@ export const Dashboard = () => {
     }
     if (!tokens?.accessToken) return;
     try {
-      await deleteCategoryBudget(tokens.accessToken, meta.id);
+      await deleteCategoryBudget(tokens.accessToken, meta.id, budgetPeriod.year, budgetPeriod.month);
       setBudgets((prev) => {
         const next = { ...prev };
         delete next[cat];

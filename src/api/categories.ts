@@ -17,8 +17,8 @@ export const getCategories = (token: string) => {
   });
 };
 
-export const getCategoryBudgets = (token: string) => {
-  return apiRequest<CategoryBudgetDto[]>('/category-budgets', {
+export const getCategoryBudgets = (token: string, year: number, month: number) => {
+  return apiRequest<CategoryBudgetDto[]>(`/category-budgets?year=${year}&month=${month}`, {
     headers: authHeaders(token),
   });
 };
@@ -45,24 +45,24 @@ export const extractCreatedCategory = (response: CreateCategoryResponse): Catego
   return null;
 };
 
-export const createCategoryBudget = (token: string, categoryId: string, limitAmount: number) => {
-  return apiRequest<CategoryBudgetDto>(`/categories/${categoryId}/budget`, {
+export const createCategoryBudget = (token: string, categoryId: string, limitAmount: number, year: number, month: number) => {
+  return apiRequest<CategoryBudgetDto>(`/categories/${categoryId}/budget?year=${year}&month=${month}`, {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify({ limitAmount }),
   });
 };
 
-export const updateCategoryBudget = (token: string, categoryId: string, limitAmount: number) => {
-  return apiRequest<CategoryBudgetDto>(`/categories/${categoryId}/budget`, {
+export const updateCategoryBudget = (token: string, categoryId: string, limitAmount: number, year: number, month: number) => {
+  return apiRequest<CategoryBudgetDto>(`/categories/${categoryId}/budget?year=${year}&month=${month}`, {
     method: 'PUT',
     headers: authHeaders(token),
     body: JSON.stringify({ limitAmount }),
   });
 };
 
-export const deleteCategoryBudget = (token: string, categoryId: string) => {
-  return apiRequest<void>(`/categories/${categoryId}/budget`, {
+export const deleteCategoryBudget = (token: string, categoryId: string, year: number, month: number) => {
+  return apiRequest<void>(`/categories/${categoryId}/budget?year=${year}&month=${month}`, {
     method: 'DELETE',
     headers: authHeaders(token),
   });
